@@ -1,6 +1,12 @@
-cmake_minimum_required(VERSION 3.29)
+﻿cmake_minimum_required(VERSION 3.29)
 project(LonelyEngine)
 
 set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_EXE_LINKER_FLAGS "-static")
 
-add_executable(LonelyEngine main.cpp)
+add_executable(LonelyEngine Main/main.cpp
+        Main/LonelyEngine.cpp
+        Main/LonelyEngine.h
+        Core/Math/Vector3.cpp
+        Core/Math/Vector3.h
+)
