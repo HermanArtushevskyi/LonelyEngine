@@ -3,76 +3,99 @@
 
 #define GLFW_INCLUDE_VULKAN
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
-#include <vector>
-#include <vulkan/vulkan.hpp>
-#include <vulkan/vulkan_raii.hpp>
+#include <iostream>
 #include <GLFW/glfw3.h>
 
-#include "QueueFamilyIndices.h"
+#include "vulkan/vulkan_raii.hpp"
 
 namespace HelloTriangle
 {
+    #ifdef NDEBUG
+    static constexpr bool enableValidationLayers = false;
+    #else
+    static constexpr bool enableValidationLayers = true;
+    #endif
+
+    static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT       severity,
+                                          vk::DebugUtilsMessageTypeFlagsEXT              type,
+                                          const vk::DebugUtilsMessengerCallbackDataEXT * pCallbackData,
+                                          void *                                         pUserData)
+    {
+        std::cout << "validation layer: type " << to_string(type) << " msg: " << pCallbackData->pMessage << std::endl;
+
+        return vk::False;
+    }
+
     class HelloTriangleApplication
     {
         public:
             void run();
 
         private:
-            #ifdef NDEBUG
-            const bool enableValidationLayers = false;
-            #else
-            const bool enableValidationLayers = true;
-            #endif
-            const std::vector<const char*> validationLayers = {
+            const int WIDTH = 1920;
+            const int HEIGHT = 1080;
+            const std::vector<char const*> VALIDATION_LAYERS = {
                 "VK_LAYER_KHRONOS_validation"
             };
 
-            const int WIDTH = 1920;
-            const int HEIGHT = 1080;
+            const std::vector<const char*> REQUIRED_DEVICE_EXTENSIONS = {
+                vk::KHRSwapchainExtensionName};
 
-
-            GLFWwindow* window;
-            VkInstance instance;
-            VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
-            VkDevice device;
-            VkQueue graphicsQueue;
-            VkQueue presentQueue;
-            VkSurfaceKHR surface;
-            VkDebugUtilsMessengerEXT debugMessenger;
-
-            static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(
-                VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-                VkDebugUtilsMessageTypeFlagsEXT messageType,
-                const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-                void* pUserData);
+            GLFWwindow* window = nullptr;
+            vk::raii::Context context;
+            vk::raii::Instance instance = nullptr;
+            vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
+            vk::raii::PhysicalDevice physicalDevice = nullptr;
+            vk::raii::Device device = nullptr;
+            vk::raii::Queue graphicsQueue = nullptr;
+            vk::raii::SurfaceKHR surface = nullptr;
+            vk::raii::SwapchainKHR swapchain = nullptr;
+            std::vector<vk::Image> swapchainImages;
+            vk::SurfaceFormatKHR swapchainFormat;
+            vk::Extent2D swapchainExtent;
+            std::vector<vk::raii::ImageView> swapchainImageViews;
 
             void initWindow();
 
             void initVulkan();
 
-            void createInstance();
-
-            void setupDebugMessanger();
-
-            void mainLoop();
-
-            void cleanup();
-
-            bool checkValidationSupport();
+            void setupDebugMessenger();
 
             void pickPhysicalDevice();
-
-            bool isDeviceSuitable(VkPhysicalDevice device);
 
             void createLogicalDevice();
 
             void createSurface();
 
-            QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device);
+            void createImageViews();
+
+            void createGraphicsPipeline();
+
+            uint32_t ChooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR & capabilities);
+
+            void createSwapChain();
+
+            bool isDeviceSuitable(vk::raii::PhysicalDevice physicalDevice);
+
+            void validateLayers();
+
+            std::vector<char const*> getRequiredLayers();
 
             std::vector<const char*> getRequiredExtensions();
 
-            void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT& createInfo);
+            void checkThatRequiredExtensionsArePresent();
+
+            vk::SurfaceFormatKHR chooseSwapSurfaceFormat(std::vector<vk::SurfaceFormatKHR> const& availableFormats);
+
+            vk::PresentModeKHR chooseSwapPresentMode(std::vector<vk::PresentModeKHR> const& availablePresentations);
+
+            vk::Extent2D chooseSwapExtent(vk::SurfaceCapabilitiesKHR const &capabilities);
+
+            void createInstance();
+
+            void mainLoop();
+
+            void cleanup();
     };
 } // HelloTriangle
 

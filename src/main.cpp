@@ -6,7 +6,6 @@ using namespace HelloTriangle;
 int main()
 {
     HelloTriangleApplication app;
-
     try
     {
         app.run();
