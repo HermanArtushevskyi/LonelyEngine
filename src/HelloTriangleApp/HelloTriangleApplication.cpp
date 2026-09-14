@@ -1,9 +1,27 @@
 ﻿#include "HelloTriangleApplication.h"
 
+#include <fstream>
 #include <vulkan/vulkan_raii.hpp>
 
 namespace HelloTriangle
 {
+    static std::vector<char> readFile(const std::string& filename) {
+        std::ifstream file(filename, std::ios::ate | std::ios::binary);
+
+        if (!file.is_open()) {
+            throw std::runtime_error("failed to open file!");
+        }
+
+        std::vector<char> buffer(file.tellg());
+
+        file.seekg(0, std::ios::beg);
+        file.read(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+
+        file.close();
+
+        return buffer;
+    }
+
     void HelloTriangleApplication::run()
     {
         this->initWindow();
@@ -111,6 +129,62 @@ namespace HelloTriangle
 
     void HelloTriangleApplication::createGraphicsPipeline()
     {
+        auto shaderCode = readFile("../../shaders/slang.spv");
+        vk::raii::ShaderModule shaderModule = createShaderModule(shaderCode);
+        vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
+        vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+        vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
+
+        vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
+        vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo{
+            .topology = vk::PrimitiveTopology::eTriangleList
+        };
+
+        vk::Viewport viewport{
+            0.0f,
+            0.0f,
+            static_cast<float>(swapchainExtent.width),
+            static_cast<float>(swapchainExtent.height),
+            0.0f,
+            1.0f
+        };
+        vk::Rect2D scissors{vk::Offset2D{0, 0}, swapchainExtent};
+
+        vk::PipelineViewportStateCreateInfo viewportState{
+            .viewportCount = 1, .pViewports = &viewport,
+            .scissorCount = 1, .pScissors = &scissors
+        };
+
+        vk::PipelineRasterizationStateCreateInfo rasterizer{
+            .depthClampEnable = vk::False,
+            .rasterizerDiscardEnable = vk::False,
+            .polygonMode = vk::PolygonMode::eFill,
+            .cullMode = vk::CullModeFlagBits::eBack,
+            .frontFace = vk::FrontFace::eClockwise,
+            .depthBiasEnable = vk::False,
+            .lineWidth = 1.0f
+        };
+
+        vk::PipelineMultisampleStateCreateInfo multisampling{
+            .rasterizationSamples = vk::SampleCountFlagBits::e1,
+            .sampleShadingEnable = vk::False};
+
+        vk::PipelineColorBlendAttachmentState colorBlendAttachment{
+            .blendEnable = vk::False,
+            .colorWriteMask =
+                vk::ColorComponentFlagBits::eR |vk::ColorComponentFlagBits::eG |vk::ColorComponentFlagBits::eB |
+                vk::ColorComponentFlagBits::eA
+        };
+
+        vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0, .pushConstantRangeCount = 0};
+        pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
+    }
+
+    vk::raii::ShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char> &code) const
+    {
+        vk::ShaderModuleCreateInfo createInfo{ .codeSize = code.size() * sizeof(char), .pCode = reinterpret_cast<const uint32_t*>(code.data()) };
+        vk::raii::ShaderModule shaderModule{ device, createInfo };
+        return  shaderModule;
     }
 
     void HelloTriangleApplication::pickPhysicalDevice()

@@ -54,6 +54,7 @@ namespace HelloTriangle
             vk::SurfaceFormatKHR swapchainFormat;
             vk::Extent2D swapchainExtent;
             std::vector<vk::raii::ImageView> swapchainImageViews;
+            vk::raii::PipelineLayout pipelineLayout = nullptr;
 
             void initWindow();
 
@@ -70,6 +71,8 @@ namespace HelloTriangle
             void createImageViews();
 
             void createGraphicsPipeline();
+
+            [[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const;
 
             uint32_t ChooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR & capabilities);
 

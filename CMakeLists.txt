@@ -31,6 +31,25 @@ target_sources(VulkanCppModule
         FILES "${Vulkan_INCLUDE_DIR}/vulkan/vulkan.cppm"
 )
 
+function (add_slang_shader_target TARGET)
+    cmake_parse_arguments ("SHADER" "" "" "SOURCES" ${ARGN})
+    set (SHADERS_DIR ${CMAKE_CURRENT_LIST_DIR}/shaders)
+    set (ENTRY_POINTS -entry vertMain -entry fragMain)
+    add_custom_command (
+            OUTPUT ${SHADERS_DIR}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${SHADERS_DIR}
+    )
+    add_custom_command (
+            OUTPUT  ${SHADERS_DIR}/slang.spv
+            COMMAND slangc shader1.slang -target spirv -profile spirv_1_4 -emit-spirv-directly -fvk-use-entrypoint-name ${ENTRY_POINTS} -o slang.spv
+            WORKING_DIRECTORY ${SHADERS_DIR}
+            DEPENDS ${SHADERS_DIR} ${SHADER_SOURCES}
+            COMMENT "Compiling Slang Shaders"
+            VERBATIM
+    )
+    add_custom_target (${TARGET} DEPENDS ${SHADERS_DIR}/slang.spv)
+endfunction()
+
 add_executable(${CMAKE_PROJECT_NAME} src/main.cpp
         src/LonelyEngine.cpp
         src/LonelyEngine.h
@@ -39,7 +58,8 @@ add_executable(${CMAKE_PROJECT_NAME} src/main.cpp
         src/HelloTriangleApp/QueueFamilyIndices.h
 )
 
-
+add_slang_shader_target( foo SOURCES ${SHADER_SLANG_SOURCES})
+add_dependencies(${CMAKE_PROJECT_NAME} foo)
 target_link_libraries(${CMAKE_PROJECT_NAME} Vulkan::cppm)
 target_link_libraries(${CMAKE_PROJECT_NAME} OpenGL::GL)
 target_link_libraries(${CMAKE_PROJECT_NAME} glfw)
