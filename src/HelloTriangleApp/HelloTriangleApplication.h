@@ -55,6 +55,7 @@ namespace HelloTriangle
             vk::Extent2D swapchainExtent;
             std::vector<vk::raii::ImageView> swapchainImageViews;
             vk::raii::PipelineLayout pipelineLayout = nullptr;
+            vk::raii::Pipeline graphicsPipeline = nullptr;
 
             void initWindow();
 
