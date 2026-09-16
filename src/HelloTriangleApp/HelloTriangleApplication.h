@@ -16,10 +16,10 @@ namespace HelloTriangle
     static constexpr bool enableValidationLayers = true;
     #endif
 
-    static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT       severity,
-                                          vk::DebugUtilsMessageTypeFlagsEXT              type,
-                                          const vk::DebugUtilsMessengerCallbackDataEXT * pCallbackData,
-                                          void *                                         pUserData)
+    static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
+                                                          vk::DebugUtilsMessageTypeFlagsEXT type,
+                                                          const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
+                                                          void *pUserData)
     {
         std::cout << "validation layer: type " << to_string(type) << " msg: " << pCallbackData->pMessage << std::endl;
 
@@ -34,14 +34,16 @@ namespace HelloTriangle
         private:
             const int WIDTH = 1920;
             const int HEIGHT = 1080;
-            const std::vector<char const*> VALIDATION_LAYERS = {
+            const std::vector<char const *> VALIDATION_LAYERS = {
                 "VK_LAYER_KHRONOS_validation"
             };
 
-            const std::vector<const char*> REQUIRED_DEVICE_EXTENSIONS = {
-                vk::KHRSwapchainExtensionName};
+            const std::vector<const char *> REQUIRED_DEVICE_EXTENSIONS = {
+                vk::KHRSwapchainExtensionName
+            };
 
-            GLFWwindow* window = nullptr;
+            GLFWwindow *window = nullptr;
+            uint32_t queueIndex = ~0;
             vk::raii::Context context;
             vk::raii::Instance instance = nullptr;
             vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
@@ -56,6 +58,8 @@ namespace HelloTriangle
             std::vector<vk::raii::ImageView> swapchainImageViews;
             vk::raii::PipelineLayout pipelineLayout = nullptr;
             vk::raii::Pipeline graphicsPipeline = nullptr;
+            vk::raii::CommandPool commandPool = nullptr;
+            vk::raii::CommandBuffer commandBuffer = nullptr;
 
             void initWindow();
 
@@ -73,9 +77,24 @@ namespace HelloTriangle
 
             void createGraphicsPipeline();
 
-            [[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char>& code) const;
+            void createCommandPool();
 
-            uint32_t ChooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR & capabilities);
+            void createCommandBuffer();
+
+            void recordCommandBuffer(uint32_t imageIndex);
+
+            void transition_image_layout(
+                uint32_t imageIndex,
+                vk::ImageLayout old_layout,
+                vk::ImageLayout new_layout,
+                vk::AccessFlags2 src_access_mask,
+                vk::AccessFlags2 dst_access_mask,
+                vk::PipelineStageFlags2 src_stage_mask,
+                vk::PipelineStageFlags2 dst_stage_mask);
+
+            [[nodiscard]] vk::raii::ShaderModule createShaderModule(const std::vector<char> &code) const;
+
+            uint32_t ChooseSwapMinImageCount(const vk::SurfaceCapabilitiesKHR &capabilities);
 
             void createSwapChain();
 
@@ -83,15 +102,15 @@ namespace HelloTriangle
 
             void validateLayers();
 
-            std::vector<char const*> getRequiredLayers();
+            std::vector<char const *> getRequiredLayers();
 
-            std::vector<const char*> getRequiredExtensions();
+            std::vector<const char *> getRequiredExtensions();
 
             void checkThatRequiredExtensionsArePresent();
 
-            vk::SurfaceFormatKHR chooseSwapSurfaceFormat(std::vector<vk::SurfaceFormatKHR> const& availableFormats);
+            vk::SurfaceFormatKHR chooseSwapSurfaceFormat(std::vector<vk::SurfaceFormatKHR> const &availableFormats);
 
-            vk::PresentModeKHR chooseSwapPresentMode(std::vector<vk::PresentModeKHR> const& availablePresentations);
+            vk::PresentModeKHR chooseSwapPresentMode(std::vector<vk::PresentModeKHR> const &availablePresentations);
 
             vk::Extent2D chooseSwapExtent(vk::SurfaceCapabilitiesKHR const &capabilities);
 

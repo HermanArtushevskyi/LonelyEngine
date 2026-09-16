@@ -5,10 +5,12 @@
 
 namespace HelloTriangle
 {
-    static std::vector<char> readFile(const std::string& filename) {
+    static std::vector<char> readFile(const std::string &filename)
+    {
         std::ifstream file(filename, std::ios::ate | std::ios::binary);
 
-        if (!file.is_open()) {
+        if (!file.is_open())
+        {
             throw std::runtime_error("failed to open file!");
         }
 
@@ -24,10 +26,10 @@ namespace HelloTriangle
 
     void HelloTriangleApplication::run()
     {
-        this->initWindow();
-        this->initVulkan();
-        this->mainLoop();
-        this->cleanup();
+        initWindow();
+        initVulkan();
+        mainLoop();
+        cleanup();
     }
 
     void HelloTriangleApplication::initWindow()
@@ -47,6 +49,8 @@ namespace HelloTriangle
         createLogicalDevice();
         createSwapChain();
         createGraphicsPipeline();
+        createCommandPool();
+        createCommandBuffer();
     }
 
     void HelloTriangleApplication::createInstance()
@@ -120,7 +124,7 @@ namespace HelloTriangle
             .subresourceRange = {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1}
         };
 
-        for (auto &image : swapchainImages)
+        for (auto &image: swapchainImages)
         {
             imageCreateInfo.image = image;
             swapchainImageViews.emplace_back(device, imageCreateInfo);
@@ -131,8 +135,12 @@ namespace HelloTriangle
     {
         auto shaderCode = readFile("../../shaders/slang.spv");
         vk::raii::ShaderModule shaderModule = createShaderModule(shaderCode);
-        vk::PipelineShaderStageCreateInfo vertShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule,  .pName = "vertMain" };
-        vk::PipelineShaderStageCreateInfo fragShaderStageInfo{ .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain" };
+        vk::PipelineShaderStageCreateInfo vertShaderStageInfo{
+            .stage = vk::ShaderStageFlagBits::eVertex, .module = shaderModule, .pName = "vertMain"
+        };
+        vk::PipelineShaderStageCreateInfo fragShaderStageInfo{
+            .stage = vk::ShaderStageFlagBits::eFragment, .module = shaderModule, .pName = "fragMain"
+        };
         vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
         vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
@@ -167,20 +175,22 @@ namespace HelloTriangle
 
         vk::PipelineMultisampleStateCreateInfo multisampling{
             .rasterizationSamples = vk::SampleCountFlagBits::e1,
-            .sampleShadingEnable = vk::False};
+            .sampleShadingEnable = vk::False
+        };
 
         vk::PipelineColorBlendAttachmentState colorBlendAttachment{
             .blendEnable = vk::False,
             .colorWriteMask =
-                vk::ColorComponentFlagBits::eR |vk::ColorComponentFlagBits::eG |vk::ColorComponentFlagBits::eB |
-                vk::ColorComponentFlagBits::eA
+            vk::ColorComponentFlagBits::eR | vk::ColorComponentFlagBits::eG | vk::ColorComponentFlagBits::eB |
+            vk::ColorComponentFlagBits::eA
         };
 
         vk::PipelineColorBlendStateCreateInfo colorBlending{
             .logicOpEnable = vk::False,
             .logicOp = vk::LogicOp::eCopy,
             .attachmentCount = 1,
-            .pAttachments = &colorBlendAttachment};
+            .pAttachments = &colorBlendAttachment
+        };
 
         vk::PipelineLayoutCreateInfo pipelineLayoutInfo{.setLayoutCount = 0, .pushConstantRangeCount = 0};
         pipelineLayout = vk::raii::PipelineLayout(device, pipelineLayoutInfo);
@@ -192,7 +202,9 @@ namespace HelloTriangle
 
         std::vector<vk::DynamicState> dynamicStates = {vk::DynamicState::eViewport, vk::DynamicState::eScissor};
 
-        vk::PipelineDynamicStateCreateInfo dynamicState{.dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data()};
+        vk::PipelineDynamicStateCreateInfo dynamicState{
+            .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()), .pDynamicStates = dynamicStates.data()
+        };
 
 
         vk::StructureChain<vk::GraphicsPipelineCreateInfo, vk::PipelineRenderingCreateInfo> pipelineCreateInfoChain = {
@@ -213,14 +225,121 @@ namespace HelloTriangle
         };
 
         graphicsPipeline = vk::raii::Pipeline(device, nullptr,
-            pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+                                              pipelineCreateInfoChain.get<vk::GraphicsPipelineCreateInfo>());
+    }
+
+    void HelloTriangleApplication::createCommandPool()
+    {
+        vk::CommandPoolCreateInfo poolInfo{
+            .flags = vk::CommandPoolCreateFlagBits::eResetCommandBuffer,
+            .queueFamilyIndex = queueIndex
+        };
+
+        commandPool = vk::raii::CommandPool(device, poolInfo);
+    }
+
+    void HelloTriangleApplication::createCommandBuffer()
+    {
+        vk::CommandBufferAllocateInfo allocInfo
+        {
+            .commandPool = commandPool,
+            .level = vk::CommandBufferLevel::ePrimary,
+            .commandBufferCount = 1
+        };
+
+        commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+    }
+
+    void HelloTriangleApplication::recordCommandBuffer(uint32_t imageIndex)
+    {
+        commandBuffer.begin({});
+        transition_image_layout(imageIndex,
+                                vk::ImageLayout::eUndefined,
+                                vk::ImageLayout::eColorAttachmentOptimal,
+                                {},
+                                vk::AccessFlagBits2::eColorAttachmentWrite,
+                                vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+                                vk::PipelineStageFlagBits2::eColorAttachmentOutput);
+
+        vk::ClearColorValue clearValue = vk::ClearColorValue(0.5f, 0.5f, 0.5f, 1.0f);
+        vk::RenderingAttachmentInfo attachmentInfo =
+        {
+            .imageView = swapchainImageViews[imageIndex],
+            .imageLayout = vk::ImageLayout::eColorAttachmentOptimal,
+            .loadOp = vk::AttachmentLoadOp::eClear,
+            .storeOp = vk::AttachmentStoreOp::eStore,
+            .clearValue = clearValue
+        };
+
+        vk::RenderingInfo renderingInfo = {
+            .renderArea           = {.offset = {0, 0}, .extent = swapchainExtent},
+            .layerCount           = 1,
+            .colorAttachmentCount = 1,
+            .pColorAttachments    = &attachmentInfo};
+
+        commandBuffer.beginRendering(renderingInfo);
+        commandBuffer.bindPipeline(vk::PipelineBindPoint::eGraphics, *graphicsPipeline);
+        commandBuffer.setViewport(0,
+            vk::Viewport(0.0f, 0.0f,
+                static_cast<float>(swapchainExtent.width), static_cast<float>(swapchainExtent.height),
+                0.0f, 1.0f));
+        commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapchainExtent));
+        commandBuffer.draw(3, 1, 0, 0);
+        commandBuffer.endRendering();
+        transition_image_layout(
+            imageIndex,
+            vk::ImageLayout::eColorAttachmentOptimal,
+            vk::ImageLayout::ePresentSrcKHR,
+            vk::AccessFlagBits2::eColorAttachmentWrite,
+            {},
+            vk::PipelineStageFlagBits2::eColorAttachmentOutput,
+            vk::PipelineStageFlagBits2::eBottomOfPipe
+        );
+        commandBuffer.end();
+    }
+
+    void HelloTriangleApplication::transition_image_layout(
+        uint32_t imageIndex,
+        vk::ImageLayout old_layout,
+        vk::ImageLayout new_layout,
+        vk::AccessFlags2 src_access_mask,
+        vk::AccessFlags2 dst_access_mask,
+        vk::PipelineStageFlags2 src_stage_mask,
+        vk::PipelineStageFlags2 dst_stage_mask)
+    {
+        vk::ImageMemoryBarrier2 barrier = {
+            .srcStageMask = src_stage_mask,
+            .srcAccessMask = src_access_mask,
+            .dstStageMask = dst_stage_mask,
+            .dstAccessMask = dst_access_mask,
+            .oldLayout = old_layout,
+            .newLayout = new_layout,
+            .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+            .image = swapchainImages[imageIndex],
+            .subresourceRange = {
+                .aspectMask = vk::ImageAspectFlagBits::eColor,
+                .baseMipLevel = 0,
+                .levelCount = 1,
+                .baseArrayLayer = 0,
+                .layerCount = 1
+            }
+        };
+        vk::DependencyInfo dependency_info = {
+            .dependencyFlags = {},
+            .imageMemoryBarrierCount = 1,
+            .pImageMemoryBarriers = &barrier
+        };
+        commandBuffer.pipelineBarrier2(dependency_info);
     }
 
     vk::raii::ShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char> &code) const
     {
-        vk::ShaderModuleCreateInfo createInfo{ .codeSize = code.size() * sizeof(char), .pCode = reinterpret_cast<const uint32_t*>(code.data()) };
-        vk::raii::ShaderModule shaderModule{ device, createInfo };
-        return  shaderModule;
+        vk::ShaderModuleCreateInfo createInfo{
+            .codeSize = code.size() * sizeof(char), .pCode = reinterpret_cast<const uint32_t *>(code.data())
+        };
+        vk::raii::ShaderModule shaderModule{device, createInfo};
+        return shaderModule;
     }
 
     void HelloTriangleApplication::pickPhysicalDevice()
@@ -244,7 +363,7 @@ namespace HelloTriangle
     void HelloTriangleApplication::createLogicalDevice()
     {
         std::vector<vk::QueueFamilyProperties> queueFamilyProperties = physicalDevice.getQueueFamilyProperties();
-        uint32_t queueIndex = ~0;
+        queueIndex = ~0;
         for (uint32_t qfpIndex = 0; qfpIndex < queueFamilyProperties.size(); qfpIndex++)
         {
             if ((queueFamilyProperties[qfpIndex].queueFlags & vk::QueueFlagBits::eGraphics) &&
@@ -297,7 +416,7 @@ namespace HelloTriangle
         std::vector<vk::SurfaceFormatKHR> availableFormats = physicalDevice.getSurfaceFormatsKHR(*surface);
         swapchainFormat = chooseSwapSurfaceFormat(availableFormats);
 
-        std::vector<vk::PresentModeKHR> availablePresentModes = physicalDevice.getSurfacePresentModesKHR( *surface );
+        std::vector<vk::PresentModeKHR> availablePresentModes = physicalDevice.getSurfacePresentModesKHR(*surface);
         vk::PresentModeKHR presentMode = chooseSwapPresentMode(availablePresentModes);
 
         vk::SwapchainCreateInfoKHR swapChainCreateStruct{
@@ -461,10 +580,10 @@ namespace HelloTriangle
 
         return {
             std::clamp<uint32_t>(width,
-                capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
+                                 capabilities.minImageExtent.width, capabilities.maxImageExtent.width),
 
             std::clamp<uint32_t>(height,
-                capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
+                                 capabilities.minImageExtent.height, capabilities.maxImageExtent.height)
         };
     }
 
