@@ -30,5 +30,3 @@ float4 fragMain(VertexOutput inVert) : SV_Target
     return float4(color, 1.0);
 }
 
-void main() {
-}

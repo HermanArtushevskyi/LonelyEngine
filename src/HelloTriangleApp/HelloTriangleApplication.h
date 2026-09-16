@@ -60,6 +60,9 @@ namespace HelloTriangle
             vk::raii::Pipeline graphicsPipeline = nullptr;
             vk::raii::CommandPool commandPool = nullptr;
             vk::raii::CommandBuffer commandBuffer = nullptr;
+            vk::raii::Semaphore presentCompleteSemaphore = nullptr;
+            vk::raii::Semaphore renderingCompleteSemaphore = nullptr;
+            vk::raii::Fence drawFence = nullptr;
 
             void initWindow();
 
@@ -116,7 +119,11 @@ namespace HelloTriangle
 
             void createInstance();
 
+            void createSyncObjects();
+
             void mainLoop();
+
+            void drawFrame();
 
             void cleanup();
     };

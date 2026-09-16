@@ -48,9 +48,11 @@ namespace HelloTriangle
         pickPhysicalDevice();
         createLogicalDevice();
         createSwapChain();
+        createImageViews();
         createGraphicsPipeline();
         createCommandPool();
         createCommandBuffer();
+        createSyncObjects();
     }
 
     void HelloTriangleApplication::createInstance()
@@ -77,6 +79,13 @@ namespace HelloTriangle
         };
 
         instance = vk::raii::Instance(context, createInfo);
+    }
+
+    void HelloTriangleApplication::createSyncObjects()
+    {
+        presentCompleteSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
+        renderingCompleteSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
+        drawFence = vk::raii::Fence(device, vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
     }
 
     void HelloTriangleApplication::setupDebugMessenger()
@@ -116,7 +125,7 @@ namespace HelloTriangle
 
     void HelloTriangleApplication::createImageViews()
     {
-        assert(swapchainImages.empty());
+        assert(swapchainImageViews.empty());
 
         vk::ImageViewCreateInfo imageCreateInfo{
             .viewType = vk::ImageViewType::e2D,
@@ -261,7 +270,7 @@ namespace HelloTriangle
                                 vk::PipelineStageFlagBits2::eColorAttachmentOutput,
                                 vk::PipelineStageFlagBits2::eColorAttachmentOutput);
 
-        vk::ClearColorValue clearValue = vk::ClearColorValue(0.5f, 0.5f, 0.5f, 1.0f);
+        vk::ClearColorValue clearValue = vk::ClearColorValue(0.0f, 0.0f, 0.0f, 1.0f);
         vk::RenderingAttachmentInfo attachmentInfo =
         {
             .imageView = swapchainImageViews[imageIndex],
@@ -386,7 +395,7 @@ namespace HelloTriangle
                 featureChain = {
                     {},
                     {.shaderDrawParameters = true},
-                    {.dynamicRendering = true},
+                    {.synchronization2 = true, .dynamicRendering = true},
                     {.extendedDynamicState = true}
                 };
         float queuePriority = 0.5f;
@@ -635,7 +644,42 @@ namespace HelloTriangle
         while (glfwWindowShouldClose(window) == false)
         {
             glfwPollEvents();
+            drawFrame();
         }
+
+        device.waitIdle();
+    }
+
+    void HelloTriangleApplication::drawFrame()
+    {
+        auto fenceResult = device.waitForFences(*drawFence, vk::True, UINT64_MAX);
+
+        if (fenceResult != vk::Result::eSuccess)
+        {
+            throw std::runtime_error("failed to wait for fence");
+        }
+
+        device.resetFences(*drawFence);
+
+        auto [result, imageIndex] = swapchain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
+        recordCommandBuffer(imageIndex);
+        graphicsQueue.waitIdle();
+        vk::PipelineStageFlags waitDestinationStageMask( vk::PipelineStageFlagBits::eColorAttachmentOutput );
+        const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,
+                                          .pWaitSemaphores      = &*presentCompleteSemaphore,
+                                          .pWaitDstStageMask    = &waitDestinationStageMask,
+                                          .commandBufferCount   = 1,
+                                          .pCommandBuffers      = &*commandBuffer,
+                                          .signalSemaphoreCount = 1,
+                                          .pSignalSemaphores    = &*renderingCompleteSemaphore};
+        graphicsQueue.submit(submitInfo, *drawFence);
+        const vk::PresentInfoKHR presentInfoKHR{
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores    = &*renderingCompleteSemaphore,
+            .swapchainCount     = 1,
+            .pSwapchains        = &*swapchain,
+            .pImageIndices      = &imageIndex};
+        result = graphicsQueue.presentKHR(presentInfoKHR);
     }
 
     void HelloTriangleApplication::cleanup()
