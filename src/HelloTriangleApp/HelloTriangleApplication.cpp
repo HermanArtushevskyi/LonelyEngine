@@ -51,7 +51,7 @@ namespace HelloTriangle
         createImageViews();
         createGraphicsPipeline();
         createCommandPool();
-        createCommandBuffer();
+        createCommandBuffers();
         createSyncObjects();
     }
 
@@ -83,9 +83,18 @@ namespace HelloTriangle
 
     void HelloTriangleApplication::createSyncObjects()
     {
-        presentCompleteSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
-        renderingCompleteSemaphore = vk::raii::Semaphore(device, vk::SemaphoreCreateInfo());
-        drawFence = vk::raii::Fence(device, vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
+        assert(presentCompleteSemaphores.empty() && renderingCompleteSemaphores.empty() && drawFences.empty());
+
+        for (size_t i = 0; i < swapchainImages.size(); i++)
+        {
+            renderingCompleteSemaphores.emplace_back(device, vk::SemaphoreCreateInfo());
+        }
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
+        {
+            presentCompleteSemaphores.emplace_back(device, vk::SemaphoreCreateInfo());
+            drawFences.emplace_back(device, vk::FenceCreateInfo{.flags = vk::FenceCreateFlagBits::eSignaled});
+        }
     }
 
     void HelloTriangleApplication::setupDebugMessenger()
@@ -247,20 +256,21 @@ namespace HelloTriangle
         commandPool = vk::raii::CommandPool(device, poolInfo);
     }
 
-    void HelloTriangleApplication::createCommandBuffer()
+    void HelloTriangleApplication::createCommandBuffers()
     {
         vk::CommandBufferAllocateInfo allocInfo
         {
             .commandPool = commandPool,
             .level = vk::CommandBufferLevel::ePrimary,
-            .commandBufferCount = 1
+            .commandBufferCount = MAX_FRAMES_IN_FLIGHT
         };
 
-        commandBuffer = std::move(vk::raii::CommandBuffers(device, allocInfo).front());
+        commandBuffers = vk::raii::CommandBuffers(device, allocInfo);
     }
 
     void HelloTriangleApplication::recordCommandBuffer(uint32_t imageIndex)
     {
+        auto &commandBuffer = commandBuffers[frameIndex];
         commandBuffer.begin({});
         transition_image_layout(imageIndex,
                                 vk::ImageLayout::eUndefined,
@@ -339,7 +349,7 @@ namespace HelloTriangle
             .imageMemoryBarrierCount = 1,
             .pImageMemoryBarriers = &barrier
         };
-        commandBuffer.pipelineBarrier2(dependency_info);
+        commandBuffers[frameIndex].pipelineBarrier2(dependency_info);
     }
 
     vk::raii::ShaderModule HelloTriangleApplication::createShaderModule(const std::vector<char> &code) const
@@ -652,34 +662,36 @@ namespace HelloTriangle
 
     void HelloTriangleApplication::drawFrame()
     {
-        auto fenceResult = device.waitForFences(*drawFence, vk::True, UINT64_MAX);
+        auto fenceResult = device.waitForFences(*drawFences[frameIndex], vk::True, UINT64_MAX);
 
         if (fenceResult != vk::Result::eSuccess)
         {
             throw std::runtime_error("failed to wait for fence");
         }
 
-        device.resetFences(*drawFence);
+        device.resetFences(*drawFences[frameIndex]);
 
-        auto [result, imageIndex] = swapchain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphore, nullptr);
+        auto [result, imageIndex] = swapchain.acquireNextImage(UINT64_MAX, *presentCompleteSemaphores[frameIndex], nullptr);
+        commandBuffers[frameIndex].reset();
         recordCommandBuffer(imageIndex);
-        graphicsQueue.waitIdle();
         vk::PipelineStageFlags waitDestinationStageMask( vk::PipelineStageFlagBits::eColorAttachmentOutput );
         const vk::SubmitInfo   submitInfo{.waitSemaphoreCount   = 1,
-                                          .pWaitSemaphores      = &*presentCompleteSemaphore,
+                                          .pWaitSemaphores      = &*presentCompleteSemaphores[frameIndex],
                                           .pWaitDstStageMask    = &waitDestinationStageMask,
                                           .commandBufferCount   = 1,
-                                          .pCommandBuffers      = &*commandBuffer,
+                                          .pCommandBuffers      = &*commandBuffers[frameIndex],
                                           .signalSemaphoreCount = 1,
-                                          .pSignalSemaphores    = &*renderingCompleteSemaphore};
-        graphicsQueue.submit(submitInfo, *drawFence);
+                                          .pSignalSemaphores    = &*renderingCompleteSemaphores[imageIndex]};
+        graphicsQueue.submit(submitInfo, *drawFences[frameIndex]);
         const vk::PresentInfoKHR presentInfoKHR{
             .waitSemaphoreCount = 1,
-            .pWaitSemaphores    = &*renderingCompleteSemaphore,
+            .pWaitSemaphores    = &*renderingCompleteSemaphores[imageIndex],
             .swapchainCount     = 1,
             .pSwapchains        = &*swapchain,
             .pImageIndices      = &imageIndex};
         result = graphicsQueue.presentKHR(presentInfoKHR);
+
+        frameIndex = (frameIndex + 1) % MAX_FRAMES_IN_FLIGHT;
     }
 
     void HelloTriangleApplication::cleanup()

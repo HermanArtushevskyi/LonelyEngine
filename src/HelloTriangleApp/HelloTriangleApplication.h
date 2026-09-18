@@ -16,6 +16,8 @@ namespace HelloTriangle
     static constexpr bool enableValidationLayers = true;
     #endif
 
+    constexpr int MAX_FRAMES_IN_FLIGHT = 2;
+
     static VKAPI_ATTR vk::Bool32 VKAPI_CALL debugCallback(vk::DebugUtilsMessageSeverityFlagBitsEXT severity,
                                                           vk::DebugUtilsMessageTypeFlagsEXT type,
                                                           const vk::DebugUtilsMessengerCallbackDataEXT *pCallbackData,
@@ -59,10 +61,11 @@ namespace HelloTriangle
             vk::raii::PipelineLayout pipelineLayout = nullptr;
             vk::raii::Pipeline graphicsPipeline = nullptr;
             vk::raii::CommandPool commandPool = nullptr;
-            vk::raii::CommandBuffer commandBuffer = nullptr;
-            vk::raii::Semaphore presentCompleteSemaphore = nullptr;
-            vk::raii::Semaphore renderingCompleteSemaphore = nullptr;
-            vk::raii::Fence drawFence = nullptr;
+            std::vector<vk::raii::CommandBuffer> commandBuffers;
+            std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
+            std::vector<vk::raii::Semaphore> renderingCompleteSemaphores;
+            std::vector<vk::raii::Fence> drawFences;
+            uint32_t frameIndex = 0;
 
             void initWindow();
 
@@ -82,7 +85,7 @@ namespace HelloTriangle
 
             void createCommandPool();
 
-            void createCommandBuffer();
+            void createCommandBuffers();
 
             void recordCommandBuffer(uint32_t imageIndex);
 
