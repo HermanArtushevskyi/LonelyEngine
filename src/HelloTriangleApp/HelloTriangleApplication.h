@@ -3,6 +3,7 @@
 
 #define GLFW_INCLUDE_VULKAN
 #define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
+#define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 #include <iostream>
 #include <GLFW/glfw3.h>
 
@@ -32,6 +33,7 @@ namespace HelloTriangle
     {
         public:
             void run();
+            bool framebufferResized = false;
 
         private:
             const int WIDTH = 1920;
@@ -88,6 +90,10 @@ namespace HelloTriangle
             void createCommandBuffers();
 
             void recordCommandBuffer(uint32_t imageIndex);
+
+            void recreateSwapChain();
+
+            void cleanupSwapChain();
 
             void transition_image_layout(
                 uint32_t imageIndex,
