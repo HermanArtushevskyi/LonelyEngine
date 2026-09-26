@@ -56,6 +56,7 @@ add_executable(${CMAKE_PROJECT_NAME} src/main.cpp
         src/HelloTriangleApp/HelloTriangleApplication.h
         src/HelloTriangleApp/HelloTriangleApplication.cpp
         src/HelloTriangleApp/QueueFamilyIndices.h
+        src/HelloTriangleApp/Vertex.h
 )
 
 add_slang_shader_target( foo SOURCES ${SHADER_SLANG_SOURCES})

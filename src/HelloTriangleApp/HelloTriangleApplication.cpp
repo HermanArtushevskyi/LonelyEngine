@@ -59,6 +59,7 @@ namespace HelloTriangle
         createImageViews();
         createGraphicsPipeline();
         createCommandPool();
+        createVertexBuffer();
         createCommandBuffers();
         createSyncObjects();
     }
@@ -157,6 +158,45 @@ namespace HelloTriangle
         }
     }
 
+    void HelloTriangleApplication::createVertexBuffer()
+    {
+        vk::BufferCreateInfo bufferInfo {
+            .size = sizeof(vertices[0]) * vertices.size(),
+            .usage = vk::BufferUsageFlagBits::eVertexBuffer,
+            .sharingMode = vk::SharingMode::eExclusive
+        };
+
+        vertexBuffer = vk::raii::Buffer(device, bufferInfo);
+
+        vk::MemoryRequirements memRequirements = vertexBuffer.getMemoryRequirements();
+        vk::MemoryAllocateInfo memAllocateInfo{
+            .allocationSize = memRequirements.size,
+            .memoryTypeIndex = findMemoryType(
+                memRequirements.memoryTypeBits,
+                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
+        };
+        vertexBufferMemory = vk::raii::DeviceMemory(device, memAllocateInfo);
+        vertexBuffer.bindMemory(*vertexBufferMemory, 0);
+        void* data = vertexBufferMemory.mapMemory(0, bufferInfo.size);
+        memcpy(data, vertices.data(), bufferInfo.size);
+        vertexBufferMemory.unmapMemory();
+
+    }
+
+    uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
+    {
+        vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
+        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+        {
+            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+            {
+                return i;
+            }
+        }
+
+        throw std::runtime_error("failed to find suitable memory type");
+    }
+
     void HelloTriangleApplication::createGraphicsPipeline()
     {
         auto shaderCode = readFile("../../shaders/slang.spv");
@@ -169,7 +209,12 @@ namespace HelloTriangle
         };
         vk::PipelineShaderStageCreateInfo shaderStages[] = {vertShaderStageInfo, fragShaderStageInfo};
 
-        vk::PipelineVertexInputStateCreateInfo vertexInputInfo{};
+        auto                                     bindingDescription    = Vertex::getBindingDescription();
+        auto                                     attributeDescriptions = Vertex::getAttributeDescriptions();
+        vk::PipelineVertexInputStateCreateInfo   vertexInputInfo{.vertexBindingDescriptionCount   = 1,
+                                                                 .pVertexBindingDescriptions      = &bindingDescription,
+                                                                 .vertexAttributeDescriptionCount = static_cast<uint32_t>(attributeDescriptions.size()),
+                                                                 .pVertexAttributeDescriptions    = attributeDescriptions.data()};
         vk::PipelineInputAssemblyStateCreateInfo inputAssemblyInfo{
             .topology = vk::PrimitiveTopology::eTriangleList
         };
@@ -311,7 +356,8 @@ namespace HelloTriangle
                 static_cast<float>(swapchainExtent.width), static_cast<float>(swapchainExtent.height),
                 0.0f, 1.0f));
         commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapchainExtent));
-        commandBuffer.draw(3, 1, 0, 0);
+        commandBuffer.bindVertexBuffers(0, *vertexBuffer, {0});
+        commandBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
         commandBuffer.endRendering();
         transition_image_layout(
             imageIndex,
@@ -707,7 +753,7 @@ namespace HelloTriangle
             recreateSwapChain();
             return;
         }
-        if (result != vk::Result::eSuccess && result !=vk::Result::eErrorOutOfDateKHR)
+        if (result != vk::Result::eSuccess && result != vk::Result::eSuboptimalKHR)
         {
             assert(result == vk::Result::eTimeout || result == vk::Result::eNotReady);
             throw std::runtime_error("failed to acquire swap chain image");

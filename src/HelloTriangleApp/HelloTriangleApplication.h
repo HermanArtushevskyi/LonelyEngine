@@ -6,7 +6,9 @@
 #define VULKAN_HPP_HANDLE_ERROR_OUT_OF_DATE_AS_SUCCESS
 #include <iostream>
 #include <GLFW/glfw3.h>
+#include <glm/glm.hpp>
 
+#include "Vertex.h"
 #include "vulkan/vulkan_raii.hpp"
 
 namespace HelloTriangle
@@ -46,6 +48,12 @@ namespace HelloTriangle
                 vk::KHRSwapchainExtensionName
             };
 
+            const std::vector<Vertex> vertices = {
+                {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+                {{0.0f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+                {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+            };
+
             GLFWwindow *window = nullptr;
             uint32_t queueIndex = ~0;
             vk::raii::Context context;
@@ -67,6 +75,8 @@ namespace HelloTriangle
             std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
             std::vector<vk::raii::Semaphore> renderingCompleteSemaphores;
             std::vector<vk::raii::Fence> drawFences;
+            vk::raii::Buffer vertexBuffer = nullptr;
+            vk::raii::DeviceMemory vertexBufferMemory = nullptr;
             uint32_t frameIndex = 0;
 
             void initWindow();
@@ -82,6 +92,10 @@ namespace HelloTriangle
             void createSurface();
 
             void createImageViews();
+
+            void createVertexBuffer();
+
+            uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
             void createGraphicsPipeline();
 
