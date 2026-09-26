@@ -160,41 +160,56 @@ namespace HelloTriangle
 
     void HelloTriangleApplication::createVertexBuffer()
     {
-        vk::BufferCreateInfo bufferInfo {
-            .size = sizeof(vertices[0]) * vertices.size(),
-            .usage = vk::BufferUsageFlagBits::eVertexBuffer,
-            .sharingMode = vk::SharingMode::eExclusive
-        };
+        vk::DeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
 
-        vertexBuffer = vk::raii::Buffer(device, bufferInfo);
+        auto [stagingBuffer, stagingBufferMemory] =
+            createBuffer(bufferSize, vk::BufferUsageFlagBits::eTransferSrc, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
 
-        vk::MemoryRequirements memRequirements = vertexBuffer.getMemoryRequirements();
-        vk::MemoryAllocateInfo memAllocateInfo{
-            .allocationSize = memRequirements.size,
-            .memoryTypeIndex = findMemoryType(
-                memRequirements.memoryTypeBits,
-                vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent)
-        };
-        vertexBufferMemory = vk::raii::DeviceMemory(device, memAllocateInfo);
-        vertexBuffer.bindMemory(*vertexBufferMemory, 0);
-        void* data = vertexBufferMemory.mapMemory(0, bufferInfo.size);
-        memcpy(data, vertices.data(), bufferInfo.size);
-        vertexBufferMemory.unmapMemory();
+        void *dataStaging = stagingBufferMemory.mapMemory(0, bufferSize);
+        memcpy(dataStaging, vertices.data(), bufferSize);
+        stagingBufferMemory.unmapMemory();
 
+        std::tie(vertexBuffer, vertexBufferMemory) =
+            createBuffer(bufferSize, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+        copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    }
+
+    std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> HelloTriangleApplication::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
+    {
+        vk::BufferCreateInfo   bufferInfo{.size = size, .usage = usage, .sharingMode = vk::SharingMode::eExclusive};
+        vk::raii::Buffer       buffer          = vk::raii::Buffer(device, bufferInfo);
+        vk::MemoryRequirements memRequirements = buffer.getMemoryRequirements();
+        vk::MemoryAllocateInfo allocInfo{.allocationSize = memRequirements.size, .memoryTypeIndex = findMemoryType(memRequirements.memoryTypeBits, properties)};
+        vk::raii::DeviceMemory bufferMemory = vk::raii::DeviceMemory(device, allocInfo);
+        buffer.bindMemory(*bufferMemory, 0);
+        return {std::move(buffer), std::move(bufferMemory)};
+    }
+
+    void HelloTriangleApplication::copyBuffer(vk::raii::Buffer & srcBuffer, vk::raii::Buffer & dstBuffer, vk::DeviceSize size)
+    {
+        vk::CommandBufferAllocateInfo allocInfo{ .commandPool = commandPool, .level = vk::CommandBufferLevel::ePrimary, .commandBufferCount = 1 };
+        vk::raii::CommandBuffer commandCopyBuffer = std::move(device.allocateCommandBuffers(allocInfo).front());
+        commandCopyBuffer.begin({.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit});
+        commandCopyBuffer.copyBuffer(*srcBuffer, *dstBuffer, vk::BufferCopy(0, 0, size));
+        commandCopyBuffer.end();
+        graphicsQueue.submit(vk::SubmitInfo{.commandBufferCount = 1, .pCommandBuffers = &*commandCopyBuffer}, nullptr);
+        graphicsQueue.waitIdle();
     }
 
     uint32_t HelloTriangleApplication::findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties)
     {
-        vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
-        for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
-        {
-            if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
-            {
-                return i;
-            }
-        }
+		vk::PhysicalDeviceMemoryProperties memProperties = physicalDevice.getMemoryProperties();
 
-        throw std::runtime_error("failed to find suitable memory type");
+		for (uint32_t i = 0; i < memProperties.memoryTypeCount; i++)
+		{
+			if ((typeFilter & (1 << i)) && (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+			{
+				return i;
+			}
+		}
+
+		throw std::runtime_error("failed to find suitable memory type!");
     }
 
     void HelloTriangleApplication::createGraphicsPipeline()

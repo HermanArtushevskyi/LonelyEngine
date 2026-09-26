@@ -1,7 +1,6 @@
 ﻿
 #ifndef LONELYENGINE_VERTEX_H
 #define LONELYENGINE_VERTEX_H
-#define VULKAN_HPP_NO_STRUCT_CONSTRUCTORS
 
 #include <glm/glm.hpp>
 #include <array>

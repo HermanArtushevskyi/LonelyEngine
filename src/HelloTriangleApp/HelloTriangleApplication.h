@@ -49,8 +49,8 @@ namespace HelloTriangle
             };
 
             const std::vector<Vertex> vertices = {
-                {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                {{0.0f, 0.5f}, {1.0f, 1.0f, 1.0f}},
+                {{0.0f, -0.5f}, {1.0f, 1.0f, 1.0f}},
+                {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
                 {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
             };
 
@@ -94,6 +94,10 @@ namespace HelloTriangle
             void createImageViews();
 
             void createVertexBuffer();
+
+            std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
+
+            void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer, vk::DeviceSize size);
 
             uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
