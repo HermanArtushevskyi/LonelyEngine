@@ -60,6 +60,7 @@ namespace HelloTriangle
         createGraphicsPipeline();
         createCommandPool();
         createVertexBuffer();
+        createIndexBuffer();
         createCommandBuffers();
         createSyncObjects();
     }
@@ -173,6 +174,24 @@ namespace HelloTriangle
             createBuffer(bufferSize, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst, vk::MemoryPropertyFlagBits::eDeviceLocal);
 
         copyBuffer(stagingBuffer, vertexBuffer, bufferSize);
+    }
+
+    void HelloTriangleApplication::createIndexBuffer()
+    {
+        vk::DeviceSize size = sizeof(indices[0]) * indices.size();
+        auto [stagingBuffer, stagingBufferMemory] =
+                createBuffer(size, vk::BufferUsageFlagBits::eTransferSrc,
+                             vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent);
+
+        void *data = stagingBufferMemory.mapMemory(0, size);
+        memcpy(data, indices.data(), size);
+        stagingBufferMemory.unmapMemory();
+
+        std::tie(indexBuffer, indexBufferMemory) =
+                createBuffer(size, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+                             vk::MemoryPropertyFlagBits::eDeviceLocal);
+
+        copyBuffer(stagingBuffer, indexBuffer, size);
     }
 
     std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> HelloTriangleApplication::createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties)
@@ -372,7 +391,8 @@ namespace HelloTriangle
                 0.0f, 1.0f));
         commandBuffer.setScissor(0, vk::Rect2D(vk::Offset2D(0, 0), swapchainExtent));
         commandBuffer.bindVertexBuffers(0, *vertexBuffer, {0});
-        commandBuffer.draw(static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+        commandBuffer.bindIndexBuffer(*indexBuffer, 0, vk::IndexType::eUint16);
+        commandBuffer.drawIndexed(static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
         commandBuffer.endRendering();
         transition_image_layout(
             imageIndex,
