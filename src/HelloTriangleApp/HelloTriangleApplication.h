@@ -61,29 +61,45 @@ namespace HelloTriangle
 
             GLFWwindow *window = nullptr;
             uint32_t queueIndex = ~0;
+
             vk::raii::Context context;
             vk::raii::Instance instance = nullptr;
+
             vk::raii::DebugUtilsMessengerEXT debugMessenger = nullptr;
+
             vk::raii::PhysicalDevice physicalDevice = nullptr;
             vk::raii::Device device = nullptr;
+
             vk::raii::Queue graphicsQueue = nullptr;
             vk::raii::SurfaceKHR surface = nullptr;
+
             vk::raii::SwapchainKHR swapchain = nullptr;
             std::vector<vk::Image> swapchainImages;
             vk::SurfaceFormatKHR swapchainFormat;
             vk::Extent2D swapchainExtent;
             std::vector<vk::raii::ImageView> swapchainImageViews;
+
+            vk::raii::DescriptorSetLayout descriptorSetLayout = nullptr;
+            vk::raii::DescriptorPool descriptorPool = nullptr;
+            std::vector<vk::raii::DescriptorSet> descriptorSets;
+
             vk::raii::PipelineLayout pipelineLayout = nullptr;
             vk::raii::Pipeline graphicsPipeline = nullptr;
+
             vk::raii::CommandPool commandPool = nullptr;
             std::vector<vk::raii::CommandBuffer> commandBuffers;
             std::vector<vk::raii::Semaphore> presentCompleteSemaphores;
             std::vector<vk::raii::Semaphore> renderingCompleteSemaphores;
             std::vector<vk::raii::Fence> drawFences;
+
             vk::raii::Buffer vertexBuffer = nullptr;
             vk::raii::DeviceMemory vertexBufferMemory = nullptr;
             vk::raii::Buffer       indexBuffer        = nullptr;
             vk::raii::DeviceMemory indexBufferMemory  = nullptr;
+            std::vector<vk::raii::Buffer>       uniformBuffers;
+            std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
+            std::vector<void *>                 uniformBuffersMapped;
+
             uint32_t frameIndex = 0;
 
             void initWindow();
@@ -104,15 +120,25 @@ namespace HelloTriangle
 
             void createIndexBuffer();
 
+            void createUniformBuffers();
+
+            void createDescriptorPool();
+
+            void createDescriptorSets();
+
             std::pair<vk::raii::Buffer, vk::raii::DeviceMemory> createBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage, vk::MemoryPropertyFlags properties);
 
             void copyBuffer(vk::raii::Buffer &srcBuffer, vk::raii::Buffer &dstBuffer, vk::DeviceSize size);
 
             uint32_t findMemoryType(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 
+            void createDescriptorSetLayout();
+
             void createGraphicsPipeline();
 
             void createCommandPool();
+
+            void createTextureImage();
 
             void createCommandBuffers();
 
@@ -160,6 +186,8 @@ namespace HelloTriangle
             void mainLoop();
 
             void drawFrame();
+
+            void updateUniformBuffer(uint32_t currentImage);
 
             void cleanup();
     };
