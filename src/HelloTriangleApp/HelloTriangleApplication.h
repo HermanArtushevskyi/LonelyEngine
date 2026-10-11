@@ -94,11 +94,15 @@ namespace HelloTriangle
 
             vk::raii::Buffer vertexBuffer = nullptr;
             vk::raii::DeviceMemory vertexBufferMemory = nullptr;
-            vk::raii::Buffer       indexBuffer        = nullptr;
-            vk::raii::DeviceMemory indexBufferMemory  = nullptr;
-            std::vector<vk::raii::Buffer>       uniformBuffers;
+            vk::raii::Buffer indexBuffer = nullptr;
+            vk::raii::DeviceMemory indexBufferMemory = nullptr;
+            std::vector<vk::raii::Buffer> uniformBuffers;
             std::vector<vk::raii::DeviceMemory> uniformBuffersMemory;
-            std::vector<void *>                 uniformBuffersMapped;
+            std::vector<void *> uniformBuffersMapped;
+            vk::raii::Image textureImage = nullptr;
+            vk::raii::DeviceMemory textureImageMemory = nullptr;
+            vk::raii::ImageView textureImageView = nullptr;
+            vk::raii::Sampler textureSampler     = nullptr;
 
             uint32_t frameIndex = 0;
 
@@ -115,6 +119,8 @@ namespace HelloTriangle
             void createSurface();
 
             void createImageViews();
+
+            void createTextureSampler();
 
             void createVertexBuffer();
 
@@ -139,6 +145,22 @@ namespace HelloTriangle
             void createCommandPool();
 
             void createTextureImage();
+
+            void createTextureImageView();
+
+            vk::raii::ImageView createImageView(vk::Image const &image, vk::Format format);
+
+            std::pair<vk::raii::Image, vk::raii::DeviceMemory> createImage(
+                uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+                vk::MemoryPropertyFlags properties);
+
+            vk::raii::CommandBuffer beginSingleTimeCommands();
+
+            void copyBufferToImage(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Buffer &buffer, vk::raii::Image &image, uint32_t width, uint32_t height);
+
+            void transitionImageLayout(vk::raii::CommandBuffer &commandBuffer, const vk::raii::Image &image, vk::ImageLayout oldLayout, vk::ImageLayout newLayout);
+
+            void endSingleTimeCommands(vk::raii::CommandBuffer &&commandBuffer);
 
             void createCommandBuffers();
 
